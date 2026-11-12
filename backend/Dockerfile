@@ -12,6 +12,7 @@ WORKDIR /var/www/html
 
 COPY . .
 
+# Tworzenie wymaganych katalogow Laravel
 RUN mkdir -p bootstrap/cache \
     storage/framework/cache/data \
     storage/framework/sessions \
@@ -19,16 +20,17 @@ RUN mkdir -p bootstrap/cache \
     storage/logs \
     && chmod -R 775 bootstrap/cache storage
 
-# Usuwamy BOM przed uruchomieniem Laravela
+# Usuwanie BOM z pliku Sanctum
 RUN php -r '$file="config/sanctum.php"; $content=file_get_contents($file); if (str_starts_with($content, "\xEF\xBB\xBF")) file_put_contents($file, substr($content, 3));'
 
+# Instalacja zaleznosci
 RUN composer install --no-dev --optimize-autoloader
 
-# Sprawdzamy dostepne trasy
+# Sprawdzenie tras Laravel
 RUN php artisan route:list
 
-# Test odpowiedzi Laravela
-RUN php -r 'require "vendor/autoload.php"; $app = require "bootstrap/app.php"; $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class); $request = Illuminate\Http\Request::create("/", "GET"); $response = $kernel->handle($request); echo "STATUS: ".$response->getStatusCode().PHP_EOL; echo "BODY: ".$response->getContent().PHP_EOL; $kernel->terminate($request, $response);'
+# Test diagnostyczny odpowiedzi HTTP Laravel
+RUN php -d display_errors=1 -d error_reporting=-1 -r 'require "vendor/autoload.php"; $app = require "bootstrap/app.php"; $request = Illuminate\Http\Request::create("/", "GET"); ob_start(); $app->handleRequest($request); $body = ob_get_clean(); echo "BODY: ".var_export($body, true).PHP_EOL;'
 
 EXPOSE 10000
 
