@@ -1,7 +1,6 @@
 
 FROM php:8.4-cli
 
-# Instalacja wymaganych bibliotek i rozszerzen PHP
 RUN apt-get update && apt-get install -y \
     git \
     unzip \
@@ -10,16 +9,15 @@ RUN apt-get update && apt-get install -y \
     && docker-php-ext-install pdo_pgsql pgsql zip \
     && rm -rf /var/lib/apt/lists/*
 
-# Instalacja Composera
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Katalog aplikacji
 WORKDIR /var/www/html
 
-# Kopiowanie plikow backendu
 COPY . .
 
-# Tworzenie katalogow wymaganych przez Laravel
+# Usuwanie BOM ze wszystkich plikow PHP projektu
+RUN php -r '$dirs=["app","bootstrap","config","routes","public"]; foreach($dirs as $dir){if(!is_dir($dir))continue; $it=new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir)); foreach($it as $file){if($file->isFile() && strtolower($file->getExtension())==="php"){ $path=$file->getPathname(); $content=file_get_contents($path); if(str_starts_with($content,"\xEF\xBB\xBF")){file_put_contents($path,substr($content,3)); echo "Removed BOM: $path\n";}}}}'
+
 RUN mkdir -p \
     bootstrap/cache \
     storage/framework/cache/data \
@@ -28,14 +26,8 @@ RUN mkdir -p \
     storage/logs \
     && chmod -R 775 bootstrap/cache storage
 
-# Usuwanie niewidocznego znaku BOM z konfiguracji Sanctum
-RUN php -r '$file="config/sanctum.php"; $content=file_get_contents($file); if (str_starts_with($content, "\xEF\xBB\xBF")) file_put_contents($file, substr($content, 3));'
-
-# Instalacja zaleznosci Laravel
 RUN composer install --no-dev --optimize-autoloader
 
-# Port Render
 EXPOSE 10000
 
-# Uruchomienie serwera Laravel
 CMD php -S 0.0.0.0:${PORT:-10000} -t public public/index.php
