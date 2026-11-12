@@ -20,6 +20,7 @@ RUN mkdir -p bootstrap/cache \
     && chmod -R 775 bootstrap/cache storage
 
 RUN composer install --no-dev --optimize-autoloader
+RUN php -r '$file="config/sanctum.php"; $content=file_get_contents($file); if (str_starts_with($content, "\xEF\xBB\xBF")) file_put_contents($file, substr($content, 3));'
 
 RUN php artisan route:list
 
