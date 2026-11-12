@@ -19,11 +19,9 @@ WORKDIR /var/www/html
 # Kopiowanie plikow backendu
 COPY . .
 
-# Usuwanie BOM ze wszystkich plikow PHP aplikacji
-RUN php -r '$dirs=["app","bootstrap","config","routes","public"]; foreach($dirs as $dir){if(!is_dir($dir))continue; $it=new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir)); foreach($it as $file){if($file->isFile() && strtolower($file->getExtension())==="php"){ $path=$file->getPathname(); $content=file_get_contents($path); if(str_starts_with($content,"\xEF\xBB\xBF")){file_put_contents($path,substr($content,3)); echo "Removed BOM: $path\n";}}}}'
-
-# Usuwanie pustych znakow przed <?php w index.php
-RUN php -r '$f="public/index.php"; $s=file_get_contents($f); $s=preg_replace("/^\s+(?=<\?php)/", "", $s); file_put_contents($f,$s);'
+# Usuwanie BOM i pustych znakow przed <?php
+# ze wszystkich plikow PHP aplikacji
+RUN php -r '$dirs=["app","bootstrap","config","routes","public"]; foreach($dirs as $dir){if(!is_dir($dir))continue; $it=new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir)); foreach($it as $file){if(!$file->isFile() || strtolower($file->getExtension())!=="php")continue; $path=$file->getPathname(); $s=file_get_contents($path); $clean=preg_replace("/\A(?:\xEF\xBB\xBF|\s)*(?=<\?php)/", "", $s); if($clean!==$s){file_put_contents($path,$clean); echo "Cleaned: $path\n";}}}'
 
 # Tworzenie katalogow wymaganych przez Laravel
 RUN mkdir -p \
@@ -34,11 +32,11 @@ RUN mkdir -p \
     storage/logs \
     && chmod -R 775 bootstrap/cache storage
 
-# Instalacja zaleznosci Laravel
+# Instalacja zaleznosci
 RUN composer install --no-dev --optimize-autoloader
 
 # Port Render
 EXPOSE 10000
 
-# Uruchomienie serwera PHP
-CMD php -S 0.0.0.0:${PORT:-10000} -t public public/index.php
+# Uruchomienie serwera Laravel
+CMD php artisan serve --host=0.0.0.0 --port=${PORT:-10000}
