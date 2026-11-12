@@ -19,13 +19,16 @@ RUN mkdir -p bootstrap/cache \
     storage/logs \
     && chmod -R 775 bootstrap/cache storage
 
-RUN composer install --no-dev --optimize-autoloader
+# Usuwamy BOM przed uruchomieniem Laravela
 RUN php -r '$file="config/sanctum.php"; $content=file_get_contents($file); if (str_starts_with($content, "\xEF\xBB\xBF")) file_put_contents($file, substr($content, 3));'
 
+RUN composer install --no-dev --optimize-autoloader
+
+# Sprawdzamy dostepne trasy
 RUN php artisan route:list
 
-RUN php -r 'foreach (["app","bootstrap","config","routes"] as $dir) { $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir)); foreach ($it as $file) { if ($file->isFile() && str_ends_with($file->getFilename(), ".php")) { $f = fopen($file->getPathname(), "rb"); $start = fread($f, 3); fclose($f); if ($start === "\xEF\xBB\xBF") echo "BOM: ".$file->getPathname().PHP_EOL; } } }'
-
+# Test odpowiedzi Laravela
+RUN php -r 'require "vendor/autoload.php"; $app = require "bootstrap/app.php"; $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class); $request = Illuminate\Http\Request::create("/", "GET"); $response = $kernel->handle($request); echo "STATUS: ".$response->getStatusCode().PHP_EOL; echo "BODY: ".$response->getContent().PHP_EOL; $kernel->terminate($request, $response);'
 
 EXPOSE 10000
 
