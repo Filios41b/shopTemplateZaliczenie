@@ -28,6 +28,8 @@ RUN mkdir -p \
 
 RUN composer install --no-dev --optimize-autoloader
 
+RUN php -r '$f="public/index.php"; $s=file_get_contents($f); echo "INDEX FIRST BYTES: ".bin2hex(substr($s,0,24)).PHP_EOL; echo "INDEX SIZE: ".strlen($s).PHP_EOL;'
+
 EXPOSE 10000
 
 CMD php -S 0.0.0.0:${PORT:-10000} -t public public/index.php
