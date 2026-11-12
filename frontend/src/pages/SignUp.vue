@@ -1,7 +1,11 @@
-﻿<script setup>
+
+<script setup>
 import { ref } from "vue";
 import axiosClient from "../axios";
 import router from "../router";
+import { useUserStore } from "../store/user";
+
+const userStore = useUserStore();
 
 const data = ref({
   name: "",
@@ -16,12 +20,29 @@ const isSubmitting = ref(false);
 
 function validate() {
   const errors = {};
-  if (data.value.name.trim().length < 2) errors.name = "Imię i nazwisko musi mieć co najmniej 2 znaki.";
-  if (data.value.name.length > 255) errors.name = "Imię i nazwisko może mieć maksymalnie 255 znaków.";
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.value.email.trim())) errors.email = "Wpisz poprawny adres e-mail.";
-  if (data.value.password.length < 8) errors.password = "Hasło musi mieć co najmniej 8 znaków.";
-  if (data.value.password_confirmation !== data.value.password) errors.password_confirmation = "Hasła nie są takie same.";
+
+  if (data.value.name.trim().length < 2) {
+    errors.name = "Imię i nazwisko musi mieć co najmniej 2 znaki.";
+  }
+
+  if (data.value.name.length > 255) {
+    errors.name = "Imię i nazwisko może mieć maksymalnie 255 znaków.";
+  }
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.value.email.trim())) {
+    errors.email = "Wpisz poprawny adres e-mail.";
+  }
+
+  if (data.value.password.length < 8) {
+    errors.password = "Hasło musi mieć co najmniej 8 znaków.";
+  }
+
+  if (data.value.password_confirmation !== data.value.password) {
+    errors.password_confirmation = "Hasła nie są takie same.";
+  }
+
   fieldErrors.value = errors;
+
   return Object.keys(errors).length === 0;
 }
 
@@ -29,26 +50,57 @@ async function submit() {
   if (isSubmitting.value) return;
 
   errorMessage.value = "";
+  fieldErrors.value = {};
+
   if (!validate()) return;
 
   isSubmitting.value = true;
 
   try {
-    await axiosClient.get("/sanctum/csrf-cookie");
-    await axiosClient.post("/register", data.value);
+    const response = await axiosClient.post("/api/register", {
+      name: data.value.name.trim(),
+      email: data.value.email.trim().toLowerCase(),
+      password: data.value.password,
+      password_confirmation: data.value.password_confirmation,
+    });
+
+    const token = response.data.token;
+
+    if (!token) {
+      throw new Error("Serwer nie zwrócił tokenu logowania.");
+    }
+
+    localStorage.setItem("token", token);
+
+    userStore.user = response.data.user;
+
     await router.push({ name: "Home" });
+
   } catch (error) {
     const response = error.response;
+
     if (response?.data?.errors) {
-      fieldErrors.value = Object.fromEntries(Object.entries(response.data.errors).map(([key, messages]) => [key, messages[0]]));
+      fieldErrors.value = Object.fromEntries(
+        Object.entries(response.data.errors).map(
+          ([key, messages]) => [
+            key,
+            Array.isArray(messages) ? messages[0] : messages,
+          ]
+        )
+      );
     } else {
-      errorMessage.value = response?.data?.message || "Nie udało się utworzyć konta. Sprawdź połączenie z serwerem i spróbuj ponownie.";
+      errorMessage.value =
+        response?.data?.message ||
+        error.message ||
+        "Nie udało się utworzyć konta. Spróbuj ponownie.";
     }
+
   } finally {
     isSubmitting.value = false;
   }
 }
 </script>
+
 
 <template>
   <div class="flex min-h-screen flex-col justify-center bg-slate-950 px-6 py-12 lg:px-8">
