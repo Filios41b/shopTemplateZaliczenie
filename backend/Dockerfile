@@ -32,11 +32,11 @@ RUN mkdir -p \
     storage/logs \
     && chmod -R 775 bootstrap/cache storage
 
-# Instalacja zaleznosci
+# Instalacja zaleznosci Laravel
 RUN composer install --no-dev --optimize-autoloader
 
 # Port Render
 EXPOSE 10000
 
-# Uruchomienie serwera Laravel
-CMD php artisan serve --host=0.0.0.0 --port=${PORT:-10000}
+# Migracje PostgreSQL i uruchomienie serwera Laravel
+CMD php artisan migrate --force && exec php artisan serve --host=0.0.0.0 --port=${PORT:-10000}
