@@ -22,6 +22,8 @@ RUN mkdir -p bootstrap/cache \
 RUN composer install --no-dev --optimize-autoloader
 
 RUN php artisan route:list
+RUN find app bootstrap config routes -type f -name '*.php' \
+    -exec grep -l $'^\xEF\xBB\xBF' {} \;
 
 EXPOSE 10000
 
