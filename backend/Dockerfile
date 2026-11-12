@@ -22,8 +22,9 @@ RUN mkdir -p bootstrap/cache \
 RUN composer install --no-dev --optimize-autoloader
 
 RUN php artisan route:list
-RUN find app bootstrap config routes -type f -name '*.php' \
-    -exec grep -l $'^\xEF\xBB\xBF' {} \;
+
+RUN php -r 'foreach (["app","bootstrap","config","routes"] as $dir) { $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir)); foreach ($it as $file) { if ($file->isFile() && str_ends_with($file->getFilename(), ".php")) { $f = fopen($file->getPathname(), "rb"); $start = fread($f, 3); fclose($f); if ($start === "\xEF\xBB\xBF") echo "BOM: ".$file->getPathname().PHP_EOL; } } }'
+
 
 EXPOSE 10000
 
