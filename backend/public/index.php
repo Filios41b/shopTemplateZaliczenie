@@ -17,4 +17,8 @@ require __DIR__.'/../vendor/autoload.php';
 /** @var Application $app */
 $app = require_once __DIR__.'/../bootstrap/app.php';
 
+file_put_contents('php://stderr', "LARAVEL: przed handleRequest\n");
+
 $app->handleRequest(Request::capture());
+
+file_put_contents('php://stderr', "LARAVEL: po handleRequest\n");
