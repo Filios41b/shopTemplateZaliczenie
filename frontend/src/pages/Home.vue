@@ -2,8 +2,10 @@
 import { onMounted, ref, computed } from "vue";
 import axiosClient from "../axios";
 import { useRouter } from "vue-router";
+import { useUserStore } from "../store/user";
 
 const router = useRouter();
+const userStore = useUserStore();
 const user = ref(null);
 const errorMessage = ref("");
 const logoutError = ref("");
@@ -39,19 +41,34 @@ const filteredProducts = computed(() => selectedCategory.value === "Wszystkie"
   ? products.value
   : products.value.filter(product => product.category === selectedCategory.value));
 
+
 async function logout() {
+  if (isLoggingOut.value) return;
+
   isLoggingOut.value = true;
   logoutError.value = "";
+
   try {
-    await axiosClient.post("/logout");
+    await axiosClient.post("/api/logout");
+
+    localStorage.removeItem("token");
+
+    userStore.clearUser();
     user.value = null;
+
     await router.push({ name: "login" });
-  } catch {
-    logoutError.value = "Nie udało się wylogować. Spróbuj ponownie.";
+
+  } catch (error) {
+    console.error("Błąd wylogowania:", error);
+
+    logoutError.value =
+      "Nie udało się wylogować. Spróbuj ponownie.";
+
   } finally {
     isLoggingOut.value = false;
   }
 }
+
 
 function openCheckout() {
   orderError.value = "";
