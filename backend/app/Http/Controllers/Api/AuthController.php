@@ -7,37 +7,27 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rules;
 use Illuminate\Validation\ValidationException;
-use Illuminate\Validation\Rule;
+use Illuminate\Auth\Events\Registered;
 
 class AuthController extends Controller
 {
     public function register(Request $request)
     {
-        $data = $request->validate([
+        $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'username' => [
-                'required',
-                'string',
-                'max:255',
-                Rule::unique('users', 'username'),
-            ],
-            'email' => [
-                'required',
-                'email',
-                'max:255',
-                Rule::unique('users', 'email'),
-            ],
-            'password' => ['required', 'string', 'min:8'],
+            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
+            'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
 
         $user = User::create([
-            'name' => $data['name'],
-            'username' => $data['username'],
-            'email' => $data['email'],
-            'password' => Hash::make($data['password']),
-            'is_admin' => false,
+            'name' => $validated['name'],
+            'email' => strtolower($validated['email']),
+            'password' => Hash::make($validated['password']),
         ]);
+
+        event(new Registered($user));
 
         $token = $user->createToken('shop-token')->plainTextToken;
 
@@ -49,25 +39,16 @@ class AuthController extends Controller
 
     public function login(Request $request)
     {
-        $data = $request->validate([
-            'email' => ['required', 'string'],
+        $validated = $request->validate([
+            'email' => ['required', 'email'],
             'password' => ['required', 'string'],
         ]);
 
-        $login = trim($data['email']);
+        $user = User::where('email', strtolower($validated['email']))->first();
 
-        $user = User::where('email', $login)
-            ->orWhere('username', $login)
-            ->first();
-
-        if (
-            !$user ||
-            !Hash::check($data['password'], $user->password)
-        ) {
+        if (!$user || !Hash::check($validated['password'], $user->password)) {
             throw ValidationException::withMessages([
-                'email' => [
-                    'Nieprawidłowy e-mail, nazwa użytkownika lub hasło.',
-                ],
+                'email' => ['Nieprawidłowy adres e-mail lub hasło.'],
             ]);
         }
 
